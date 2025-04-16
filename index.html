@@ -41,33 +41,58 @@
       text-decoration: none;
       display: inline-block;
     }
+    #loadMoreBtn {
+      display: block;
+      margin: 1em auto;
+      padding: 0.5em 1.2em;
+      font-size: 1em;
+      background: #2196f3;
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <h2>Archive.org File Search</h2>
   <input type="text" id="searchInput" placeholder="Search for files...">
   <div id="results"></div>
+  <button id="loadMoreBtn" style="display:none;">Load More</button>
 
   <script>
     const input = document.getElementById("searchInput");
     const resultsContainer = document.getElementById("results");
+    const loadMoreBtn = document.getElementById("loadMoreBtn");
+
+    let currentPage = 1;
+    let currentQuery = "";
 
     input.addEventListener("keypress", function(e) {
       if (e.key === "Enter") {
-        search(input.value);
+        currentQuery = input.value.trim();
+        currentPage = 1;
+        resultsContainer.innerHTML = "";
+        search(currentQuery, currentPage);
       }
     });
 
-    async function search(query) {
-      resultsContainer.innerHTML = "Searching...";
-      const url = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier,title&rows=5&page=1&output=json`;
+    loadMoreBtn.addEventListener("click", () => {
+      currentPage++;
+      search(currentQuery, currentPage);
+    });
+
+    async function search(query, page) {
+      if (!query) return;
+
+      loadMoreBtn.style.display = "none";
+      const url = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier,title&rows=5&page=${page}&output=json`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
-        resultsContainer.innerHTML = "";
 
-        if (data.response.docs.length === 0) {
+        if (data.response.docs.length === 0 && page === 1) {
           resultsContainer.innerHTML = "No results found.";
           return;
         }
@@ -82,7 +107,7 @@
 
           div.appendChild(title);
 
-          // Fetch downloadable files for this item
+          // Fetch downloadable files
           const fileListUrl = `https://archive.org/metadata/${item.identifier}`;
           try {
             const fileRes = await fetch(fileListUrl);
@@ -116,9 +141,15 @@
 
           resultsContainer.appendChild(div);
         }
+
+        if (data.response.docs.length >= 5) {
+          loadMoreBtn.style.display = "block";
+        } else {
+          loadMoreBtn.style.display = "none";
+        }
       } catch (err) {
-        resultsContainer.innerHTML = "Error loading results.";
         console.error(err);
+        if (page === 1) resultsContainer.innerHTML = "Error loading results.";
       }
     }
   </script>
